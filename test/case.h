@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#define CASE_TESTS
+
 /* the following 9 lines to generate unique name was taken from Catch: https://github.com/philsquared/Catch
  * here is the licence:
  * Boost Software License - Version 1.0 - August 17th, 2003
@@ -41,17 +43,32 @@
 
 typedef void (*case_f)(char*, int*);
 
+#ifdef __ELF__
+// in ELF object format, we can simply query custom section rather than scan through the whole binary memory
+// to find function pointer. We do this whenever possible because in this way, we don't have access error
+// when hooking up with memory checkers such as address sanitizer or valgrind
+typedef struct {
+	case_f func;
+	char* name;
+} case_t;
+
+#define TEST_CASE(desc) \
+static void __attribute__((used)) INTERNAL_CATCH_UNIQUE_NAME(__test_case_func__) (char* __case_name__, int* __case_result__); \
+static case_t INTERNAL_CATCH_UNIQUE_NAME(__test_case_ctx__) __attribute__((used)) __attribute__((section("case_data"))) = { .func = INTERNAL_CATCH_UNIQUE_NAME(__test_case_func__), .name = desc }; \
+static void INTERNAL_CATCH_UNIQUE_NAME(__test_case_func__) (char* __case_name__, int* __case_result__) 
+#else
 typedef struct {
 	uint64_t sig_head;
-	case_f driver;
+	case_f func;
 	char* name;
 	uint64_t sig_tail;
 } case_t;
 
 #define TEST_CASE(desc) \
-static void __attribute__((used)) INTERNAL_CATCH_UNIQUE_NAME(__test_case_driver__) (char* __case_name__, int* __case_result__); \
-static case_t INTERNAL_CATCH_UNIQUE_NAME(__test_case_ctx__) __attribute__((used)) = { .driver = INTERNAL_CATCH_UNIQUE_NAME(__test_case_driver__), .sig_head = 0x883253372849284B, .name = desc, .sig_tail = 0x883253372849284B }; \
-static void INTERNAL_CATCH_UNIQUE_NAME(__test_case_driver__) (char* __case_name__, int* __case_result__) 
+static void __attribute__((used)) INTERNAL_CATCH_UNIQUE_NAME(__test_case_func__) (char* __case_name__, int* __case_result__); \
+static case_t INTERNAL_CATCH_UNIQUE_NAME(__test_case_ctx__) __attribute__((used)) = { .func = INTERNAL_CATCH_UNIQUE_NAME(__test_case_func__), .sig_head = 0x883253372849284B, .name = desc, .sig_tail = 0x883253372849284B }; \
+static void INTERNAL_CATCH_UNIQUE_NAME(__test_case_func__) (char* __case_name__, int* __case_result__) 
+#endif
 
 #define ABORT_CASE (*__case_result__) = -1; return;
 
