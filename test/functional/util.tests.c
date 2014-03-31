@@ -181,9 +181,59 @@ TEST_CASE("matrix flatten")
 	ccv_flatten(dmt, (ccv_matrix_t**)&result, 0, 0);
 	ccv_matrix_free(dmt);
 	int rf[4] = {300, 200, 45, 450};
-	REQUIRE_EQ(CCV_GET_CHANNEL(result->type), CCV_C1, "flatten matrix should has only one channel");
-	REQUIRE_ARRAY_EQ(int, result->data.i32, rf, 4, "matrix flatten should has same value as reference array");
+	REQUIRE_EQ(CCV_GET_CHANNEL(result->type), CCV_C1, "flatten matrix should have only one channel");
+	REQUIRE_ARRAY_EQ(int, result->data.i32, rf, 4, "matrix flatten should have same value as reference array");
 	ccv_matrix_free(result);
+}
+
+TEST_CASE("matrix border")
+{
+	ccv_dense_matrix_t* dmt = ccv_dense_matrix_new(1, 1, CCV_32F | CCV_C1, 0, 0);
+	dmt->data.f32[0] = 2.0;
+	ccv_dense_matrix_t* result = 0;
+	ccv_margin_t margin = ccv_margin(2, 3, 1, 2);
+	ccv_border(dmt, (ccv_matrix_t**)&result, 0, margin);
+	ccv_matrix_free(dmt);
+	float rf[24] = {
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 2, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+	};
+	REQUIRE_EQ(margin.top + margin.bottom + 1, result->rows, "bordered matrix should have margin.top + margin.bottom + 1 rows");
+	REQUIRE_EQ(margin.left + margin.right + 1, result->cols, "bordered matrix should have margin.left + margin.right + 1 cols");
+	REQUIRE_ARRAY_EQ_WITH_TOLERANCE(float, result->data.f32, rf, 24, 1e-5, "matrix border should have same value as reference array");
+	ccv_matrix_free(result);
+}
+
+TEST_CASE("half precision and float-point conversion")
+{
+	uint16_t* h = (uint16_t*)ccmalloc(sizeof(uint16_t) * 0x10000);
+	float* f = (float*)ccmalloc(sizeof(float) * 0x10000);
+	uint16_t* b = (uint16_t*)ccmalloc(sizeof(uint16_t) * 0x10000);
+	float* c = (float*)ccmalloc(sizeof(float) * 0x10000);
+	int i;
+	for (i = 0; i < 0x10000; i++)
+		h[i] = i;
+	ccv_half_precision_to_float(h, f, 0x10000);
+	ccv_float_to_half_precision(f, b, 0x10000);
+	REQUIRE_ARRAY_EQ(uint16_t, h, b, 0x10000, "half precision convert to float and then convert back should match exactly");
+	for (i = 0; i <= 2048; i++)
+		f[i] = i;
+	ccv_float_to_half_precision(f, h, 2049);
+	ccv_half_precision_to_float(h, c, 2049);
+	REQUIRE_ARRAY_EQ_WITH_TOLERANCE(float, f, c, 2049, 1e-5, "0-2048 integer to half precision and convert back should match exactly");
+	for (i = 4097; i <= 8192; i++)
+		f[i - 4097] = i;
+	ccv_float_to_half_precision(f, h, 8192 - 4097 + 1);
+	ccv_half_precision_to_float(h, c, 8192 - 4097 + 1);
+	REQUIRE_ARRAY_EQ_WITH_TOLERANCE(float, f, c, 8192 - 4097 + 1, 4 + 1e-5, "4097-8192 integer to half precision and convert back should round to multiple of 4");
+	ccfree(h);
+	ccfree(f);
+	ccfree(b);
+	ccfree(c);
 }
 
 #include "case_main.h"

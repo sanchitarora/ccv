@@ -4,10 +4,10 @@ LDFLAGS := -L"../../lib" -lccv $(LDFLAGS)
 CFLAGS := -O3 -Wall -I"../../lib" -I"../" $(CFLAGS)
 TARGETS = defects.l0.1.tests
 
-test: all
-	@for test in $(TARGETS) ; do ./"$$test" ; done
-
 all: $(TARGETS)
+
+test: all
+	@for test in $(TARGETS) ; do ./"$$test" || exit ; done
 
 clean:
 	${MAKE} clean -C ../../lib ; rm -f *.o $(TARGETS)

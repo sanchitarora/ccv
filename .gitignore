@@ -1,10 +1,10 @@
-*.[oa]
+*.[oda]
 *.~
 *.swp
 tags
 gh-pages
-site
 *.tests
+*.pyc
 lib/.CC
 lib/.DEF
 lib/.LN
@@ -30,3 +30,4 @@ data/*
 tool/*
 config.mk
 build
+site/_site
